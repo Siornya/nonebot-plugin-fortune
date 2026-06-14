@@ -3,8 +3,11 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
-from nonebot import get_driver
+from nonebot import get_driver, require
 from nonebot.log import logger
+
+require("nonebot_plugin_localstore")
+import nonebot_plugin_localstore as store
 from pydantic import BaseModel, ConfigDict, model_validator
 
 from .download import ResourceError, download_resource
@@ -111,6 +114,15 @@ themes_flag_config: ThemesFlagConfig = ThemesFlagConfig.model_validate(
 )
 
 
+# 运行时产物给 localstore 管理
+# 静态资源留在 resource 内
+_PLUGIN_NAME: str = "nonebot_plugin_fortune"
+USER_DATA_FILE: Path = store.get_data_file(_PLUGIN_NAME, "fortune_data.json")
+GROUP_RULES_FILE: Path = store.get_data_file(_PLUGIN_NAME, "group_rules.json")
+OUT_DIR: Path = store.get_cache_dir(_PLUGIN_NAME) / "out"
+SPECIFIC_RULES_FILE: Path = fortune_config.fortune_path / "specific_rules.json"
+
+
 @driver.on_startup
 async def fortune_check() -> None:
     if not fortune_config.fortune_path.exists():
@@ -143,10 +155,30 @@ async def fortune_check() -> None:
     """
 		Check rules and data files
 	"""
-    fortune_data_path: Path = fortune_config.fortune_path / "fortune_data.json"
+    fortune_data_path: Path = USER_DATA_FILE
+    group_rules_path: Path = GROUP_RULES_FILE
     fortune_setting_path: Path = fortune_config.fortune_path / "fortune_setting.json"
-    group_rules_path: Path = fortune_config.fortune_path / "group_rules.json"
-    specific_rules_path: Path = fortune_config.fortune_path / "specific_rules.json"
+    specific_rules_path: Path = SPECIFIC_RULES_FILE
+
+    USER_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # 一次性迁移
+    for _legacy, _target in (
+        (fortune_config.fortune_path / "fortune_data.json", USER_DATA_FILE),
+        (fortune_config.fortune_path / "group_rules.json", GROUP_RULES_FILE),
+    ):
+        if _target.exists() or not _legacy.exists():
+            continue
+        try:
+            _content = json.loads(_legacy.read_text(encoding="utf-8"))
+        except Exception:
+            _content = {}
+        if _content:
+            _target.write_text(
+                json.dumps(_content, ensure_ascii=False, indent=4), encoding="utf-8"
+            )
+            logger.info(f"已将运行时数据迁移至 localstore 数据目录：{_target}")
 
     if not fortune_data_path.exists():
         logger.warning("Resource fortune_data.json is missing, initialized one...")

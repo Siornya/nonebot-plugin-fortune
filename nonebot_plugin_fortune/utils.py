@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .config import fortune_config, themes_flag_config
+from .config import OUT_DIR, fortune_config, themes_flag_config
 
 
 def get_copywriting() -> Tuple[str, str]:
@@ -99,11 +99,10 @@ def drawing(gid: str, uid: str, theme: str, spec_path: Optional[str] = None) -> 
         draw.text((x, y), textVertical, fill=color, font=ttfront)
 
     # Save
-    outDir: Path = fortune_config.fortune_path / "out"
-    if not outDir.exists():
-        outDir.mkdir(exist_ok=True, parents=True)
+    if not OUT_DIR.exists():
+        OUT_DIR.mkdir(exist_ok=True, parents=True)
 
-    outPath = outDir / f"{gid}_{uid}.png"
+    outPath = OUT_DIR / f"{gid}_{uid}.png"
 
     img.save(outPath)
     return outPath
