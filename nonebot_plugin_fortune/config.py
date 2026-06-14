@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Union
 
 from nonebot import get_driver
 from nonebot.log import logger
-from pydantic import BaseModel, Extra, root_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from .download import ResourceError, download_resource
 
@@ -40,15 +40,17 @@ FortuneThemesDict: Dict[str, List[str]] = {
 }
 
 
-class PluginConfig(BaseModel, extra=Extra.ignore):
+class PluginConfig(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     fortune_path: Path = Path(__file__).parent / "resource"
 
 
-class ThemesFlagConfig(BaseModel, extra=Extra.ignore):
+class ThemesFlagConfig(BaseModel):
     """
     Switches of themes only valid in random divination.
     Make sure NOT ALL FALSE!
     """
+    model_config = ConfigDict(extra="ignore")
 
     amazing_grace_flag: bool = True
     arknights_flag: bool = True
@@ -73,19 +75,19 @@ class ThemesFlagConfig(BaseModel, extra=Extra.ignore):
     touhou_old_flag: bool = True
     warship_girls_r_flag: bool = True
 
-    @root_validator
-    def check_all_disabled(cls, values) -> None:
+    @model_validator(mode="after")
+    def check_all_disabled(self) -> "ThemesFlagConfig":
         """Check whether all themes are DISABLED"""
         flag: bool = False
-        for theme in values:
-            if values.get(theme, False):
+        for key in self.__dict__:
+            if self.__dict__[key]:
                 flag = True
                 break
 
         if not flag:
             raise ValueError("Fortune themes ALL disabled! Please check!")
 
-        return values
+        return self
 
 
 class FortuneConfig(PluginConfig, ThemesFlagConfig):
@@ -103,8 +105,10 @@ class DateTimeEncoder(json.JSONEncoder):
 
 
 driver = get_driver()
-fortune_config: PluginConfig = PluginConfig.parse_obj(driver.config.dict())
-themes_flag_config: ThemesFlagConfig = ThemesFlagConfig.parse_obj(driver.config.dict())
+fortune_config: PluginConfig = PluginConfig.model_validate(driver.config.model_dump())
+themes_flag_config: ThemesFlagConfig = ThemesFlagConfig.model_validate(
+    driver.config.model_dump()
+)
 
 
 @driver.on_startup
