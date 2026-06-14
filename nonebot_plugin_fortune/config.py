@@ -53,6 +53,7 @@ class ThemesFlagConfig(BaseModel):
     Switches of themes only valid in random divination.
     Make sure NOT ALL FALSE!
     """
+
     model_config = ConfigDict(extra="ignore")
 
     amazing_grace_flag: bool = True

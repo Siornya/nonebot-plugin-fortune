@@ -1,6 +1,6 @@
-from typing import Annotated
 import base64
 from pathlib import Path
+from typing import Annotated
 
 from nonebot import on_command, on_fullmatch, on_regex, require
 from nonebot.adapters.onebot.v11 import (
